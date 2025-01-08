@@ -1,0 +1,106 @@
+
+---
+title: "Outlier Detection Techniques"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This document demonstrates various advanced techniques for detecting outliers in a dataset. These include statistical methods (Z-Score, Elliptic Envelope), distance-based methods (KNN, Isolation Forest), and density-based methods (DBSCAN, LOF).
+
+---
+
+## Step 1: Load the Data
+
+```{r load-data}
+# Load necessary libraries
+library(tidyverse)
+library(FNN)
+library(mvtnorm)
+library(dbscan)
+library(DMwR)
+library(robustbase)
+library(isolationForest)
+
+# Load the dataset (assuming it's in the same folder as this Rmd file)
+data <- read.csv("outlier_detection_data.csv")
+
+# Quick look at the data
+head(data)
+summary(data)
+```
+
+---
+
+## Step 2: Statistical Methods
+
+### Z-Score
+```{r z-score}
+# Compute Z-Scores
+data$z_score_feature_1 <- abs(scale(data$Feature_1))
+data$z_score_feature_2 <- abs(scale(data$Feature_2))
+
+# Flag outliers based on Z-Score threshold (e.g., > 3)
+data$z_outliers <- ifelse(data$z_score_feature_1 > 3 | data$z_score_feature_2 > 3, TRUE, FALSE)
+table(data$z_outliers)
+```
+
+### Elliptic Envelope
+```{r elliptic-envelope}
+# Fit the Elliptic Envelope model
+env_model <- covMcd(data[, c("Feature_1", "Feature_2")])
+env_outliers <- mahalanobis(data[, c("Feature_1", "Feature_2")], env_model$center, env_model$cov) > qchisq(0.975, 2)
+table(env_outliers)
+```
+
+---
+
+## Step 3: Distance-Based Methods
+
+### K-Nearest Neighbors (KNN)
+```{r knn}
+# Compute distances to k nearest neighbors
+knn_distances <- knnx.dist(data[, c("Feature_1", "Feature_2")], k = 5)
+data$knn_outliers <- apply(knn_distances, 1, function(x) mean(x) > quantile(knn_distances, 0.95))
+table(data$knn_outliers)
+```
+
+### Isolation Forest
+```{r isolation-forest}
+# Fit Isolation Forest
+iso_model <- isolationForest$new()
+iso_model$fit(data[, c("Feature_1", "Feature_2")])
+data$isolation_outliers <- iso_model$predict(data[, c("Feature_1", "Feature_2")])
+table(data$isolation_outliers)
+```
+
+---
+
+## Step 4: Density-Based Methods
+
+### DBSCAN
+```{r dbscan}
+# Fit DBSCAN
+db <- dbscan::dbscan(data[, c("Feature_1", "Feature_2")], eps = 5, minPts = 5)
+data$dbscan_outliers <- db$cluster == 0
+table(data$dbscan_outliers)
+```
+
+### Local Outlier Factor (LOF)
+```{r lof}
+# Compute LOF
+lof_scores <- lof(data[, c("Feature_1", "Feature_2")], k = 5)
+data$lof_outliers <- lof_scores > quantile(lof_scores, 0.95)
+table(data$lof_outliers)
+```
+
+---
+
+## Conclusion
+
+This document demonstrates multiple approaches to outlier detection, highlighting their strengths and limitations. Choose the most appropriate method based on your dataset and analysis goals.
+
